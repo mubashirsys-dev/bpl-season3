@@ -51,7 +51,7 @@ class BplTestSuite {
 
     public function runAll(): void {
         echo "====================================================================\n";
-        echo " BUDDILANE PREMIER LEAGUE SEASON 3 — AUTOMATED TEST SUITE (27 TESTS)\n";
+        echo " BUDDILANE PREMIER LEAGUE SEASON 3 — AUTOMATED TEST SUITE (29 TESTS)\n";
         echo "====================================================================\n\n";
 
         $this->test1_PlayerFormSubmission();
@@ -479,6 +479,71 @@ class BplTestSuite {
         $hasTiles = str_contains($html, 'adm-pv-tile');
 
         $this->assert("27. Player View Structured Profile", $hasHero && $hasBento && $hasTiles, "Player details render structured sports ID pass and organized bento grid");
+    }
+
+    // 28. Vercel Configuration Validation
+    private function test28_VercelConfigurationValidation(): void {
+        $vercelJsonPath = ROOT_PATH . '/vercel.json';
+        $exists = file_exists($vercelJsonPath);
+        $content = $exists ? file_get_contents($vercelJsonPath) : '';
+        $json = json_decode($content, true);
+
+        $hasValidJson = is_array($json);
+        $functions = $json['functions'] ?? [];
+
+        // Rule 1: Functions pattern must only target api/ directory
+        $allFunctionsInApi = true;
+        foreach (array_keys($functions) as $pattern) {
+            if (!str_starts_with($pattern, 'api/')) {
+                $allFunctionsInApi = false;
+                break;
+            }
+        }
+
+        // Rule 2: No invalid patterns like admin/*.php or *.php
+        $noAdminPattern = !isset($functions['admin/*.php']) && !isset($functions['*.php']);
+
+        // Rule 3: Function pattern must match actual files in api/
+        $apiFiles = glob(ROOT_PATH . '/api/*.php');
+        $hasApiFiles = count($apiFiles) >= 4;
+
+        // Rule 4: Routes must contain catch-all to /api/index.php
+        $routes = $json['routes'] ?? [];
+        $hasApiIndexCatchAll = false;
+        foreach ($routes as $route) {
+            if (($route['src'] ?? '') === '/(.*)' && ($route['dest'] ?? '') === '/api/index.php') {
+                $hasApiIndexCatchAll = true;
+                break;
+            }
+        }
+
+        $isValid = $hasValidJson && $allFunctionsInApi && $noAdminPattern && $hasApiFiles && $hasApiIndexCatchAll;
+        $this->assert("28. Vercel Configuration Validation", $isValid, "vercel.json validated with compliant api-only serverless function mappings and catch-all router");
+    }
+
+    // 29. Vercel Serverless Function Routing
+    private function test29_VercelServerlessFunctionRouting(): void {
+        // Test routing to root index.php via api/index.php
+        $_SERVER['REQUEST_URI'] = '/';
+        $_SERVER['HTTP_HOST'] = 'bpl-season3.vercel.app';
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+
+        ob_start();
+        require ROOT_PATH . '/api/index.php';
+        $rootHtml = ob_get_clean();
+
+        $routesToForm = str_contains($rootHtml, 'PLAYER REGISTRATION FORM') || str_contains($rootHtml, 'BUDDILANE PREMIER LEAGUE');
+
+        // Test routing to admin login via api/index.php
+        $_SERVER['REQUEST_URI'] = '/admin/login.php';
+        ob_start();
+        require ROOT_PATH . '/api/index.php';
+        $loginHtml = ob_get_clean();
+
+        $routesToLogin = str_contains($loginHtml, 'Admin Portal Login') || str_contains($loginHtml, 'Sign In');
+
+        $this->assert("29. Vercel Serverless Function Routing", $routesToForm && $routesToLogin, "api/index.php successfully routes both public and admin web pages");
     }
 }
 

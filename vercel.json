@@ -1,12 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/**/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "admin/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    },
-    "*.php": {
+    "api/*.php": {
       "runtime": "vercel-php@0.7.1"
     }
   },
@@ -20,16 +15,24 @@
       "dest": "/uploads/$1"
     },
     {
-      "src": "/admin/(.*)",
-      "dest": "/admin/$1"
+      "src": "/api/create-order.php",
+      "dest": "/api/create-order.php"
     },
     {
-      "src": "/admin",
-      "dest": "/admin/dashboard.php"
+      "src": "/api/verify-payment.php",
+      "dest": "/api/verify-payment.php"
+    },
+    {
+      "src": "/api/check-payment-status.php",
+      "dest": "/api/check-payment-status.php"
+    },
+    {
+      "src": "/api/razorpay-webhook.php",
+      "dest": "/api/razorpay-webhook.php"
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/api/index.php"
     }
   ]
 }

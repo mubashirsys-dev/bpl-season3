@@ -8,7 +8,8 @@
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
-ini_set('error_log', __DIR__ . '/../error.log');
+$logTarget = is_writable(__DIR__ . '/..') ? __DIR__ . '/../error.log' : sys_get_temp_dir() . '/bpl_error.log';
+ini_set('error_log', $logTarget);
 
 // Set Indian Standard Time
 date_default_timezone_set('Asia/Kolkata');
@@ -42,11 +43,25 @@ define('DB_PORT', getenv('DB_PORT') ?: '3306');
 define('DB_NAME', getenv('DB_NAME') ?: 'buddilane_db');
 define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
-define('DB_SQLITE_PATH', getenv('DB_SQLITE_PATH') ?: __DIR__ . '/../buddilane.sqlite');
+$defaultSqlite = is_writable(__DIR__ . '/..') 
+    ? __DIR__ . '/../buddilane.sqlite' 
+    : sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'buddilane.sqlite';
+define('DB_SQLITE_PATH', getenv('DB_SQLITE_PATH') ?: $defaultSqlite);
 
 // App Paths & URLs
 define('ROOT_PATH', dirname(__DIR__));
-define('UPLOAD_DIR', ROOT_PATH . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'players' . DIRECTORY_SEPARATOR);
+
+$defaultUploadDir = ROOT_PATH . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'players' . DIRECTORY_SEPARATOR;
+if (!is_dir($defaultUploadDir)) {
+    @mkdir($defaultUploadDir, 0755, true);
+}
+if (!is_writable($defaultUploadDir) && !is_writable(ROOT_PATH)) {
+    $defaultUploadDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'players' . DIRECTORY_SEPARATOR;
+    if (!is_dir($defaultUploadDir)) {
+        @mkdir($defaultUploadDir, 0755, true);
+    }
+}
+define('UPLOAD_DIR', $defaultUploadDir);
 
 // Dynamically determine Base URL for Apache/XAMPP subfolders
 if (!defined('BASE_URL')) {
