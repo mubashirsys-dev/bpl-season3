@@ -1,20 +1,21 @@
 <?php
 /**
  * BUDDILANE PREMIER LEAGUE — SEASON 3 (2026–27)
- * Database Connection using PDO Prepared Statements
+ * Production Database Connection using PDO Prepared Statements
+ * Fully configured for MilesWeb MariaDB Hosting (Unix Socket & TCP Fallback)
  */
 
 require_once __DIR__ . '/config.php';
 
 class Database {
     private static ?PDO $instance = null;
+    private static ?string $connectionMethod = null;
 
     /**
      * Get or create PDO singleton connection
      */
     public static function getConnection(): PDO {
         if (self::$instance === null) {
-            $dbType = DB_TYPE;
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -22,51 +23,76 @@ class Database {
             ];
 
             // 1. If explicitly set to sqlite
-            if ($dbType === 'sqlite') {
+            if (DB_TYPE === 'sqlite') {
                 self::$instance = self::getSqliteConnection($options);
+                self::$connectionMethod = 'sqlite';
                 return self::$instance;
             }
 
-            // 2. Try MySQL connection
-            try {
-                $dsn = sprintf(
-                    "mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4",
-                    DB_HOST,
-                    DB_PORT,
-                    DB_NAME
-                );
-                self::$instance = new PDO($dsn, DB_USER, DB_PASS, $options);
-            } catch (PDOException $e) {
-                // If unknown database error (1049), attempt automatic creation
-                if ($e->getCode() == 1049 || str_contains($e->getMessage(), 'Unknown database')) {
-                    try {
-                        $rootDsn = sprintf("mysql:host=%s;port=%s;charset=utf8mb4", DB_HOST, DB_PORT);
-                        $rootPdo = new PDO($rootDsn, DB_USER, DB_PASS, $options);
-                        $rootPdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                        self::$instance = new PDO($dsn, DB_USER, DB_PASS, $options);
-                        
-                        // Check if tables exist, if not import database.sql
-                        $checkStmt = self::$instance->query("SHOW TABLES LIKE 'admins'");
-                        if (!$checkStmt->fetch()) {
-                            $sqlFile = __DIR__ . '/../database.sql';
-                            if (file_exists($sqlFile)) {
-                                $sql = file_get_contents($sqlFile);
-                                self::$instance->exec($sql);
-                            }
-                        }
-                    } catch (PDOException $e2) {
-                        error_log("MySQL auto-create failed: " . $e2->getMessage() . ". Using SQLite fallback.");
-                        self::$instance = self::getSqliteConnection($options);
-                    }
-                } else {
-                    // Graceful fallback to SQLite so site NEVER crashes with HTTP 500
-                    error_log("MySQL connection error: " . $e->getMessage() . ". Using SQLite fallback.");
-                    self::$instance = self::getSqliteConnection($options);
+            $dbName   = DB_NAME;
+            $dbUser   = DB_USER;
+            $dbPass   = DB_PASS;
+            $dbSocket = defined('DB_SOCKET') ? DB_SOCKET : '/run/mysqld/mysqld.sock';
+            $dbHost   = DB_HOST;
+            $dbPort   = DB_PORT;
+
+            // 2. Primary: MilesWeb MariaDB Unix Socket connection
+            // Recommended by MilesWeb for maximum local performance and lowest latency
+            if (!empty($dbSocket) && (file_exists($dbSocket) || PHP_OS_FAMILY !== 'Windows')) {
+                try {
+                    $socketDsn = sprintf(
+                        "mysql:unix_socket=%s;dbname=%s;charset=utf8mb4",
+                        $dbSocket,
+                        $dbName
+                    );
+                    self::$instance = new PDO($socketDsn, $dbUser, $dbPass, $options);
+                    self::$connectionMethod = 'unix_socket';
+                    return self::$instance;
+                } catch (PDOException $e) {
+                    error_log("MilesWeb Unix socket connection failed: " . $e->getMessage() . ". Trying TCP fallback.");
                 }
+            }
+
+            // 3. Secondary: TCP host connection (MilesWeb 103.108.220.222:3306 or configured host)
+            try {
+                $tcpDsn = sprintf(
+                    "mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4",
+                    $dbHost,
+                    $dbPort,
+                    $dbName
+                );
+                self::$instance = new PDO($tcpDsn, $dbUser, $dbPass, $options);
+                self::$connectionMethod = 'tcp';
+                return self::$instance;
+            } catch (PDOException $e) {
+                error_log("MilesWeb TCP connection failed: " . $e->getMessage());
+
+                // 4. Safe Local Development / Offline Testing SQLite Fallback
+                // Allows local test suites to run without crashing when remote MariaDB is unreachable
+                $isLocalEnv = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1'], true) 
+                    || php_sapi_name() === 'cli'
+                    || (getenv('ALLOW_SQLITE_FALLBACK') === 'true');
+
+                if ($isLocalEnv) {
+                    error_log("Notice: Falling back to local SQLite for development / test environment.");
+                    self::$instance = self::getSqliteConnection($options);
+                    self::$connectionMethod = 'sqlite_fallback';
+                    return self::$instance;
+                }
+
+                // In live production, throw a clean, secure PDOException (never leak credentials)
+                throw new PDOException("Production database connection could not be established. Please check hosting credentials.");
             }
         }
 
         return self::$instance;
+    }
+
+    /**
+     * Return active connection method ('unix_socket', 'tcp', 'sqlite', 'sqlite_fallback')
+     */
+    public static function getConnectionMethod(): ?string {
+        return self::$connectionMethod;
     }
 
     /**

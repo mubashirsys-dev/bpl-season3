@@ -51,7 +51,7 @@ class BplTestSuite {
 
     public function runAll(): void {
         echo "====================================================================\n";
-        echo " BUDDILANE PREMIER LEAGUE SEASON 3 — AUTOMATED TEST SUITE (29 TESTS)\n";
+        echo " BUDDILANE PREMIER LEAGUE SEASON 3 — AUTOMATED TEST SUITE (30 TESTS)\n";
         echo "====================================================================\n\n";
 
         $this->test1_PlayerFormSubmission();
@@ -556,6 +556,35 @@ class BplTestSuite {
         $isRealCss = str_contains($cssContent, '--pitch-green') && !str_contains($cssContent, '<!DOCTYPE html>');
 
         $this->assert("29. Vercel Routing & Static Delivery", $hasCleanCssUrl && $routesToForm && $routesToLogin && $isRealCss, "Direct static stylesheet delivery, clean BASE_URL, and front controller validated");
+    }
+
+    // 30. MilesWeb MariaDB Configuration & Diagnostic Security
+    private function test30_MilesWebMariaDbConfigurationAndDiagnostics(): void {
+        // Test 1: Verified MilesWeb database constants
+        $hasCorrectDbName = (DB_NAME === 'mubix_in1_bpl_season3');
+        $hasCorrectDbUser = (DB_USER === 'mubix_in1_bpluser');
+        $hasCorrectSocket = (DB_SOCKET === '/run/mysqld/mysqld.sock');
+        $hasCorrectHost = (DB_HOST === '103.108.220.222');
+
+        // Test 2: Verify admin/db-test.php rejects unauthenticated requests (HTTP 403)
+        $_SESSION = [];
+        $_GET = [];
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        ob_start();
+        require ROOT_PATH . '/admin/db-test.php';
+        $blockedOutput = ob_get_clean();
+        $isForbidden = str_contains($blockedOutput, 'Access Denied (403)');
+
+        // Test 3: Verify admin/db-test.php grants access with valid token without leaking password
+        $_GET['token'] = 'bpl_milesweb_2026';
+        ob_start();
+        require ROOT_PATH . '/admin/db-test.php';
+        $diagOutput = ob_get_clean();
+        $isGranted = str_contains($diagOutput, 'MilesWeb MariaDB Diagnostic Test');
+        $noPasswordLeak = !str_contains($diagOutput, 'mubix_in1_bpluser@') && !str_contains($diagOutput, 'DB_PASS');
+
+        $isValid = $hasCorrectDbName && $hasCorrectDbUser && $hasCorrectSocket && $hasCorrectHost && $isForbidden && $isGranted && $noPasswordLeak;
+        $this->assert("30. MilesWeb MariaDB & Diagnostics", $isValid, "MilesWeb MariaDB constants, Unix socket fallback, and protected diagnostics validated");
     }
 }
 

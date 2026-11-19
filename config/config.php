@@ -36,12 +36,26 @@ if (file_exists($envFile)) {
     }
 }
 
-// Database Credentials
+// Load private local configuration file if present (ignored by Git)
+$localConfigFile = __DIR__ . '/config.local.php';
+if (file_exists($localConfigFile)) {
+    $localConfig = require $localConfigFile;
+    if (is_array($localConfig)) {
+        foreach ($localConfig as $key => $val) {
+            putenv("{$key}={$val}");
+            $_ENV[$key] = $val;
+            $_SERVER[$key] = $val;
+        }
+    }
+}
+
+// Database Credentials — MilesWeb MariaDB Production Ready
 define('DB_TYPE', getenv('DB_TYPE') ?: 'mysql'); // 'mysql' or 'sqlite'
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_SOCKET', getenv('DB_SOCKET') !== false ? getenv('DB_SOCKET') : '/run/mysqld/mysqld.sock');
+define('DB_HOST', getenv('DB_HOST') ?: '103.108.220.222');
 define('DB_PORT', getenv('DB_PORT') ?: '3306');
-define('DB_NAME', getenv('DB_NAME') ?: 'buddilane_db');
-define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_NAME', getenv('DB_NAME') ?: 'mubix_in1_bpl_season3');
+define('DB_USER', getenv('DB_USER') ?: 'mubix_in1_bpluser');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 $defaultSqlite = is_writable(__DIR__ . '/..') 
     ? __DIR__ . '/../buddilane.sqlite' 
