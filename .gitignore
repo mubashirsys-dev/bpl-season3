@@ -1,0 +1,17 @@
+# Buddilane Premier League .gitignore
+# Environment & Sensitive configs
+.env
+config/config.local.php
+*.sqlite
+*.db
+
+# Uploads (ignore player photos in git except keep directory)
+uploads/players/*
+!uploads/players/.gitkeep
+!uploads/players/.htaccess
+
+# Logs & temp files
+*.log
+scratch/
+.system_generated/
+

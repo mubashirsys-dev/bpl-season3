@@ -1,0 +1,21 @@
+# Deny script execution in uploads
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .exe .pl .py .sh
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .exe .pl .py .sh
+
+<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|exe|sh|bat|cmd|vbs)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+Options -ExecCGI
+Options -Indexes
+

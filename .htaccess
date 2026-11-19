@@ -1,0 +1,32 @@
+# Buddilane Premier League Security & Apache Config
+
+DirectoryIndex index.php register.php
+
+# Prevent Directory Browsing
+Options -Indexes
+
+# Rewrite Rules for clean URLs
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^admin$ admin/ [R=301,L]
+</IfModule>
+
+# UTF-8 Encoding
+AddDefaultCharset UTF-8
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "^\.|\.(sql|env|ini|log|sh|bak)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Limit request body size to 10MB
+LimitRequestBody 10485760

@@ -1,0 +1,4 @@
+# Admin Directory Apache Configuration
+DirectoryIndex index.php login.php
+Options -Indexes
+
