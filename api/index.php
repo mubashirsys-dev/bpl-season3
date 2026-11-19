@@ -15,26 +15,39 @@ $parsedPath = parse_url($requestUri, PHP_URL_PATH) ?? '/';
 // Normalize path: strip leading/trailing slashes
 $path = trim($parsedPath, '/');
 
-// 1. Static file check for root-level files (e.g. favicon, robots.txt, etc.)
-if ($path !== '' && file_exists($rootDir . '/' . $path) && !is_dir($rootDir . '/' . $path) && !str_ends_with($path, '.php')) {
-    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-    $mimes = [
-        'svg'  => 'image/svg+xml',
-        'png'  => 'image/png',
-        'jpg'  => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'css'  => 'text/css',
-        'js'   => 'application/javascript',
-        'json' => 'application/json',
-        'ico'  => 'image/x-icon',
-        'txt'  => 'text/plain',
-        'pdf'  => 'application/pdf',
-    ];
-    $contentType = $mimes[$ext] ?? 'application/octet-stream';
-    header("Content-Type: {$contentType}");
-    readfile($rootDir . '/' . $path);
-    exit;
+// 1. Static file check (e.g. assets, favicon, robots.txt, etc.)
+if ($path !== '' && !str_ends_with($path, '.php')) {
+    $filePath = $rootDir . '/' . $path;
+    if (file_exists($filePath) && !is_dir($filePath)) {
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimes = [
+            'css'  => 'text/css; charset=UTF-8',
+            'js'   => 'application/javascript; charset=UTF-8',
+            'svg'  => 'image/svg+xml',
+            'png'  => 'image/png',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'ico'  => 'image/x-icon',
+            'json' => 'application/json',
+            'pdf'  => 'application/pdf',
+            'txt'  => 'text/plain; charset=UTF-8',
+        ];
+        $contentType = $mimes[$ext] ?? 'application/octet-stream';
+        header("Content-Type: {$contentType}");
+        header("Cache-Control: public, max-age=31536000, immutable");
+        readfile($filePath);
+        exit;
+    }
+
+    // If an asset path was requested (e.g. starts with assets/ or uploads/) but wasn't found,
+    // return a clean 404 text response — NEVER fall through to index.php HTML!
+    if (str_starts_with($path, 'assets/') || str_starts_with($path, 'uploads/')) {
+        http_response_code(404);
+        header("Content-Type: text/plain; charset=UTF-8");
+        echo "404 Not Found: Static asset not available.";
+        exit;
+    }
 }
 
 // 2. Map clean URL paths to physical PHP files
@@ -70,6 +83,7 @@ if (!file_exists($targetFile) || is_dir($targetFile)) {
         $targetFile = $rootDir . '/index.php';
     } else {
         http_response_code(404);
+        header("Content-Type: text/plain; charset=UTF-8");
         echo "404 Not Found";
         exit;
     }

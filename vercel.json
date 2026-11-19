@@ -5,34 +5,10 @@
       "runtime": "vercel-php@0.7.1"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/uploads/$1"
-    },
-    {
-      "src": "/api/create-order.php",
-      "dest": "/api/create-order.php"
-    },
-    {
-      "src": "/api/verify-payment.php",
-      "dest": "/api/verify-payment.php"
-    },
-    {
-      "src": "/api/check-payment-status.php",
-      "dest": "/api/check-payment-status.php"
-    },
-    {
-      "src": "/api/razorpay-webhook.php",
-      "dest": "/api/razorpay-webhook.php"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.php"
+      "source": "/((?!assets/|uploads/|api/|favicon\\.ico|robots\\.txt).*)",
+      "destination": "/api/index.php"
     }
   ]
 }

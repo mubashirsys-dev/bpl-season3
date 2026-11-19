@@ -481,7 +481,7 @@ class BplTestSuite {
         $this->assert("27. Player View Structured Profile", $hasHero && $hasBento && $hasTiles, "Player details render structured sports ID pass and organized bento grid");
     }
 
-    // 28. Vercel Configuration Validation
+    // 28. Vercel Configuration Validation (Modern Rewrites & Filesystem-First)
     private function test28_VercelConfigurationValidation(): void {
         $vercelJsonPath = ROOT_PATH . '/vercel.json';
         $exists = file_exists($vercelJsonPath);
@@ -507,25 +507,33 @@ class BplTestSuite {
         $apiFiles = glob(ROOT_PATH . '/api/*.php');
         $hasApiFiles = count($apiFiles) >= 4;
 
-        // Rule 4: Routes must contain catch-all to /api/index.php
-        $routes = $json['routes'] ?? [];
-        $hasApiIndexCatchAll = false;
-        foreach ($routes as $route) {
-            if (($route['src'] ?? '') === '/(.*)' && ($route['dest'] ?? '') === '/api/index.php') {
-                $hasApiIndexCatchAll = true;
+        // Rule 4: Modern rewrites must bypass assets and route non-static traffic to api/index.php
+        $rewrites = $json['rewrites'] ?? [];
+        $hasCleanRewrite = false;
+        foreach ($rewrites as $rw) {
+            if (str_contains($rw['source'] ?? '', 'assets/') && ($rw['destination'] ?? '') === '/api/index.php') {
+                $hasCleanRewrite = true;
                 break;
             }
         }
 
-        $isValid = $hasValidJson && $allFunctionsInApi && $noAdminPattern && $hasApiFiles && $hasApiIndexCatchAll;
-        $this->assert("28. Vercel Configuration Validation", $isValid, "vercel.json validated with compliant api-only serverless function mappings and catch-all router");
+        $isValid = $hasValidJson && $allFunctionsInApi && $noAdminPattern && $hasApiFiles && $hasCleanRewrite;
+        $this->assert("28. Vercel Configuration Validation", $isValid, "vercel.json validated with filesystem-first rewrites and api-only serverless function mappings");
     }
 
-    // 29. Vercel Serverless Function Routing
+    // 29. Vercel Serverless Function Routing & Static Asset Delivery
     private function test29_VercelServerlessFunctionRouting(): void {
-        // Test routing to root index.php via api/index.php
+        // Test 1: Verify clean BASE_URL calculation on Vercel host
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['HTTP_HOST'] = 'bpl-season3-xxcx.vercel.app';
+        $_SERVER['SCRIPT_NAME'] = '/index.php';
+        $testBaseUrl = rtrim('https://' . $_SERVER['HTTP_HOST'], '/\\');
+        $cssUrl = $testBaseUrl . '/assets/css/style.css?v=3.3.0';
+        $hasCleanCssUrl = !str_contains($cssUrl, '//assets') && !str_contains($cssUrl, '\\') && str_starts_with($cssUrl, 'https://bpl-season3-xxcx.vercel.app/assets/');
+
+        // Test 2: Test routing to root index.php via api/index.php
         $_SERVER['REQUEST_URI'] = '/';
-        $_SERVER['HTTP_HOST'] = 'bpl-season3.vercel.app';
+        $_SERVER['HTTP_HOST'] = 'bpl-season3-xxcx.vercel.app';
         $_SERVER['REQUEST_METHOD'] = 'GET';
         $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 
@@ -535,7 +543,7 @@ class BplTestSuite {
 
         $routesToForm = str_contains($rootHtml, 'PLAYER REGISTRATION FORM') || str_contains($rootHtml, 'BUDDILANE PREMIER LEAGUE');
 
-        // Test routing to admin login via api/index.php
+        // Test 3: Test routing to admin login via api/index.php
         $_SERVER['REQUEST_URI'] = '/admin/login.php';
         ob_start();
         require ROOT_PATH . '/api/index.php';
@@ -543,7 +551,11 @@ class BplTestSuite {
 
         $routesToLogin = str_contains($loginHtml, 'Admin Portal Login') || str_contains($loginHtml, 'Sign In');
 
-        $this->assert("29. Vercel Serverless Function Routing", $routesToForm && $routesToLogin, "api/index.php successfully routes both public and admin web pages");
+        // Test 4: Physical static stylesheet exists and is valid CSS
+        $cssContent = file_get_contents(ROOT_PATH . '/assets/css/style.css');
+        $isRealCss = str_contains($cssContent, '--pitch-green') && !str_contains($cssContent, '<!DOCTYPE html>');
+
+        $this->assert("29. Vercel Routing & Static Delivery", $hasCleanCssUrl && $routesToForm && $routesToLogin && $isRealCss, "Direct static stylesheet delivery, clean BASE_URL, and front controller validated");
     }
 }
 

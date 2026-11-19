@@ -74,20 +74,22 @@ if (!defined('BASE_URL')) {
         $scriptName = '/' . $scriptName;
     }
     
-    // Check if BUDDILANE is in the path
+    // Check if BUDDILANE is in the path (local development)
     if (preg_match('#^(.*?(?:/BUDDILANE|/buddilane))#i', $scriptName, $matches)) {
-        $basePath = rtrim($matches[1], '/');
+        $basePath = rtrim(str_replace('\\', '/', $matches[1]), '/');
     } else {
-        $dir = dirname($scriptName);
+        $dir = str_replace('\\', '/', dirname($scriptName));
         $basePath = preg_replace('#/(?:admin|api|includes|assets|tests)(?:/.*)?$#i', '', $dir);
-        $basePath = rtrim($basePath, '/');
+        $basePath = rtrim(str_replace('\\', '/', $basePath), '/');
     }
     
-    if (!empty($basePath) && !str_starts_with($basePath, '/')) {
+    // Ensure basePath contains only forward slashes and no standalone slash
+    $basePath = trim(str_replace('\\', '/', $basePath), '/');
+    if ($basePath !== '') {
         $basePath = '/' . $basePath;
     }
     
-    define('BASE_URL', $protocol . $host . $basePath);
+    define('BASE_URL', rtrim($protocol . $host . $basePath, '/\\'));
 }
 
 define('UPLOAD_URL', BASE_URL . '/uploads/players/');
